@@ -84,6 +84,20 @@ for (region_actual in c("Cinturón de Fuego", "Resto")) {
 }
 
 # -----------------------------------------------------------------------
+# PASO 3 (continuación) - Chequeo de robustez: Spearman
+#   La Guía Metodológica (Sección 6) recomienda esto explícitamente
+#   cuando hay outliers o no linealidad: "considerar la correlación de
+#   Spearman o Kendall". Acá aplica directo: profundidad tiene asimetría
+#   3,72 y outliers genuinos hasta 700 km (paso 6 de la limpieza), y
+#   Pearson es sensible justo a eso. Spearman usa rangos en vez de
+#   valores crudos, así que no lo afectan los extremos de la misma forma.
+# -----------------------------------------------------------------------
+r_spearman <- cor(datos_mw$magnitud, datos_mw$profundidad, method = "spearman")
+n_mw <- nrow(datos_mw)
+cat(sprintf("\n[Paso 3 - robustez Spearman, familia_mw] rho = %.3f, n = %d\n", r_spearman, n_mw))
+print(CorCI(r_spearman, n_mw, conf.level = 0.95))
+
+# -----------------------------------------------------------------------
 # PASO 4 - (Opcional) IC para la pendiente de una regresión
 #   profundidad ~ magnitud
 #   No se corre por defecto: el paso 10 de la limpieza y el paso 3 de

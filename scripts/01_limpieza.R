@@ -40,6 +40,8 @@ datos <- read_csv("datos/crudo.csv", show_col_types = FALSE) %>%
     lugar = place,
     actualizado = updated
   )
+datos <- datos %>% select(-any_of("...1"))  # columna sin nombre que trae el CSV crudo (un índice viejo), se descarta
+
 n_inicial <- nrow(datos)
 cat(sprintf("[Carga] %d registros, %d columnas\n", n_inicial, ncol(datos)))
 
@@ -122,10 +124,10 @@ cat("[Paso 4] Decisión: se flaguean, no se eliminan. Usar como chequeo de sensi
 #   Decisión: NO se excluye nada acá. Se documenta la recomendación de
 #   restringir el análisis principal a la familia mw en Fase 1-2.
 # -----------------------------------------------------------------------
-familia_mw <- c("mw", "mwc", "mww", "mwb", "mwr", "mwp")
+codigos_mw <- c("mw", "mwc", "mww", "mwb", "mwr", "mwp")
 datos <- datos %>%
   mutate(familia_magnitud = case_when(
-    tipo_magnitud %in% familia_mw ~ "familia_mw",
+    tipo_magnitud %in% codigos_mw ~ "familia_mw",
     tipo_magnitud == "mb" ~ "mb",
     tipo_magnitud == "ms" ~ "ms",
     TRUE ~ "otra"
@@ -241,8 +243,6 @@ ggsave("reportes/paso9_boxplot.png", grafico_paso9, width = 6, height = 5, dpi =
 #   de profundidad (paso 9), no una interacción magnitud*región. Clave
 #   para decidir el modelo de Fase 2.
 # -----------------------------------------------------------------------
-set.seed(1)
-
 grafico_general <- ggplot(datos, aes(magnitud, profundidad)) +
   geom_point(size = 0.3, alpha = 0.1, color = "gray40") +
   geom_smooth(method = "loess", span = 0.3, se = FALSE, color = "black") +
