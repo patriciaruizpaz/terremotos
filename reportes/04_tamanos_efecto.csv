@@ -1,0 +1,13 @@
+analisis,medida,n,valor,li,ls,magnitud
+familia_mw (principal),g de Hedges (desvío combinado),56993,0.487,0.469,0.505,pequeño
+familia_mw (principal),d_av (promedio de varianzas),56993,0.564,NA,NA,mediano
+familia_mw (principal),Delta de Glass (ref. Resto),56993,1.295,NA,NA,grande
+familia_mw (principal),Probabilidad de superioridad (A),56993,0.783,NA,NA,NA
+familia_mw (principal),Delta de Cliff,56993,0.566,NA,NA,grande
+TODAS las escalas (sensibilidad),g de Hedges (desvío combinado),101995,0.486,0.472,0.501,pequeño
+familia_mw sin relleno (sensibilidad),g de Hedges (desvío combinado),45809,0.478,0.457,0.5,pequeño
+"familia_mw, general",r de Pearson,56993,0.028,0.02,0.036,trivial
+"familia_mw, Cinturón de Fuego",r de Pearson,40470,0.007,-0.003,0.017,trivial
+"familia_mw, Resto",r de Pearson,16523,0.067,0.052,0.082,trivial
+"familia_mw, general",rho de Spearman,56993,0.014,0.006,0.022,trivial
+"TODAS las escalas, general (sensibilidad)",r de Pearson,101995,-0.017,-0.024,-0.011,trivial
