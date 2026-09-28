@@ -11,6 +11,11 @@
 # DescTools que pide la guía de la materia, y con su equivalente en R
 # base, como chequeo cruzado — si las dos coinciden, da más confianza
 # en el resultado antes de reportarlo en el trabajo.
+#
+# ADVERTENCIA GENERAL: todos los IC analíticos de este script suponen
+# observaciones independientes. Los sismos no lo son (réplicas, paso 11
+# de la limpieza), así que estos IC son, si acaso, angostos de más. La
+# sensibilidad a esa dependencia se evalúa en 05_bootstrap.R.
 # =====================================================================
 
 # install.packages("DescTools")   # instalar una sola vez si falta
@@ -84,6 +89,49 @@ for (region_actual in c("Cinturón de Fuego", "Resto")) {
 }
 
 # -----------------------------------------------------------------------
+# PASO 3 (continuación) - IC para la DIFERENCIA de correlaciones entre
+#   regiones (Resto - Cinturón de Fuego), sobre familia_mw.
+#   Por qué hace falta: la pregunta del proyecto es si la relación
+#   profundidad-magnitud CAMBIA según la región. Tener r = 0,007 (CdF,
+#   IC que incluye el 0) y r = 0,067 (Resto, IC que excluye el 0) NO
+#   responde eso: comparar si cada IC incluye o no el cero es el Error 3
+#   de la Guía Teórica (comparar ICs individuales). Hay que estimar la
+#   diferencia directamente.
+#   Método: IC de Zou (2007) para la diferencia de dos correlaciones
+#   independientes, armado con los IC de Fisher de cada una. Se agrega la
+#   prueba z clásica de Fisher solo como referencia.
+#   Limitaciones: (1) supone dos muestras independientes (las secuencias
+#   sísmicas cruzan regiones en muy pocos casos, pero la dependencia
+#   entre réplicas sigue estando); (2) una diferencia de r chica con este
+#   n puede ser "distinguible de cero" y aun así trivial: interpretar el
+#   tamaño, no solo si excluye el 0. La versión bootstrap está en
+#   05_bootstrap.R.
+# -----------------------------------------------------------------------
+ic_diferencia_correlaciones <- function(r1, n1, r2, n2, nivel = 0.95) {
+  ic1 <- CorCI(r1, n1, conf.level = nivel)
+  ic2 <- CorCI(r2, n2, conf.level = nivel)
+  l1 <- ic1[["lwr.ci"]]; u1 <- ic1[["upr.ci"]]
+  l2 <- ic2[["lwr.ci"]]; u2 <- ic2[["upr.ci"]]
+  dif <- r1 - r2
+  c(diferencia = dif,
+    lwr.ci = dif - sqrt((r1 - l1)^2 + (u2 - r2)^2),
+    upr.ci = dif + sqrt((u1 - r1)^2 + (r2 - l2)^2))
+}
+
+datos_mw_cdf <- datos_mw %>% filter(region == "Cinturón de Fuego")
+datos_mw_resto <- datos_mw %>% filter(region == "Resto")
+r_cdf <- cor(datos_mw_cdf$magnitud, datos_mw_cdf$profundidad); n_cdf <- nrow(datos_mw_cdf)
+r_resto <- cor(datos_mw_resto$magnitud, datos_mw_resto$profundidad); n_resto <- nrow(datos_mw_resto)
+
+ic_dif_r <- ic_diferencia_correlaciones(r_resto, n_resto, r_cdf, n_cdf)
+z_dif <- (atanh(r_resto) - atanh(r_cdf)) / sqrt(1 / (n_resto - 3) + 1 / (n_cdf - 3))
+cat(sprintf("\n[Paso 3 - diferencia de r entre regiones, familia_mw]\n"))
+cat(sprintf("  r Resto = %.3f (n = %d) | r Cinturón de Fuego = %.3f (n = %d)\n", r_resto, n_resto, r_cdf, n_cdf))
+cat(sprintf("  Diferencia (Resto - CdF) = %.3f, IC 95%% [%.3f; %.3f] (Zou)\n",
+            ic_dif_r[["diferencia"]], ic_dif_r[["lwr.ci"]], ic_dif_r[["upr.ci"]]))
+cat(sprintf("  Referencia: z de Fisher = %.2f, p = %.2g\n", z_dif, 2 * pnorm(-abs(z_dif))))
+
+# -----------------------------------------------------------------------
 # PASO 3 (continuación) - Chequeo de robustez: Spearman
 #   La Guía Metodológica (Sección 6) recomienda esto explícitamente
 #   cuando hay outliers o no linealidad: "considerar la correlación de
@@ -91,6 +139,10 @@ for (region_actual in c("Cinturón de Fuego", "Resto")) {
 #   3,72 y outliers genuinos hasta 700 km (paso 6 de la limpieza), y
 #   Pearson es sensible justo a eso. Spearman usa rangos en vez de
 #   valores crudos, así que no lo afectan los extremos de la misma forma.
+#   Nota: CorCI(rho, n) aplica la fórmula de Fisher pensada para Pearson;
+#   para Spearman el error estándar real es algo mayor (Bonett y Wright,
+#   2000), así que este IC es aproximado y levemente angosto. Con rho ~0,01
+#   la diferencia es despreciable, pero conviene decirlo si se reporta.
 # -----------------------------------------------------------------------
 r_spearman <- cor(datos_mw$magnitud, datos_mw$profundidad, method = "spearman")
 n_mw <- nrow(datos_mw)
@@ -108,17 +160,25 @@ print(CorCI(r_spearman, n_mw, conf.level = 0.95))
 # confint(modelo, level = 0.95)
 
 # -----------------------------------------------------------------------
-# PASO 5 - Verificación formal de supuestos
-#   Independencia y forma de la distribución ya se relevaron en la
-#   limpieza (pasos 6 y 11). Acá se confirma homogeneidad de varianza
-#   específicamente sobre familia_mw — el paso 9 de la limpieza la vio
-#   sobre el dataset completo, no sobre este subconjunto puntual, así
-#   que conviene chequearlo de nuevo acá antes de dar Welch por sentado.
+# PASO 5 - Verificación de supuestos
+#   Homogeneidad de varianza: se confirma acá específicamente sobre
+#   familia_mw — el paso 9 de la limpieza la vio sobre el dataset
+#   completo, no sobre este subconjunto puntual. (La razón de varianzas
+#   es una descripción, no una prueba formal; alcanza para justificar
+#   Welch, que de todos modos no exige varianzas iguales.)
+#   Forma de la distribución: profundidad es muy asimétrica (asimetría
+#   3,72); con n de decenas de miles la media muestral es aproximadamente
+#   normal igual (TCL), pero declararlo.
+#   INDEPENDENCIA: NO se cumple. ~9% de los sismos de familia_mw son
+#   posibles réplicas (paso 11 de la limpieza), y los IC de este script
+#   la suponen. No se corrige acá: se declara como limitación y se evalúa
+#   con el bootstrap por secuencias de 05_bootstrap.R.
 # -----------------------------------------------------------------------
 varianzas_mw <- datos_mw %>% group_by(region) %>% summarise(varianza = var(profundidad))
 razon_mw <- max(varianzas_mw$varianza) / min(varianzas_mw$varianza)
 cat(sprintf("\n[Paso 5] Razón de varianzas dentro de familia_mw: %.1fx\n", razon_mw))
 cat("[Paso 5] Decisión: confirma heterocedasticidad también en el subconjunto principal -> Welch queda justificado, no solo en el dataset completo.\n")
+cat("[Paso 5] Independencia: no se cumple del todo (réplicas). Los IC de este script deben leerse junto con la sensibilidad de 05_bootstrap.R.\n")
 
 # -----------------------------------------------------------------------
 # PASO 6 - Redacción en formato APA
@@ -129,4 +189,5 @@ cat("[Paso 5] Decisión: confirma heterocedasticidad también en el subconjunto 
 cat("\n[Paso 6] Formato de reporte (Guía Teórica, Sección 8):\n")
 cat("  diferencia de medias = X km, IC 95% [LI; LS]\n")
 cat("  r = X, IC 95% [LI; LS]\n")
-cat("  Evitar Error 2 (nunca 'probabilidad de que el parámetro esté en el IC') y Error 3 (no comparar superposición de IC individuales entre regiones — para eso está el IC de la diferencia del paso 2).\n")
+cat("  diferencia de r = X, IC 95% [LI; LS]\n")
+cat("  Evitar Error 2 (nunca 'probabilidad de que el parámetro esté en el IC') y Error 3 (no comparar superposición de IC individuales entre regiones — para eso están el IC de la diferencia del paso 2 y el de la diferencia de r del paso 3).\n")
