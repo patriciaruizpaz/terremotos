@@ -20,8 +20,13 @@ source("scripts/02_decisiones.R")
 source("scripts/03_ic.R")
 source("scripts/04_efecto.R")
 
-# 05_bootstrap.R: la primera vez tarda unos 3 minutos (bootstrap, permutaciones
+# 05_bootstrap.R: la primera vez tarda unos 7 minutos (bootstrap, permutaciones
 # e inversión) y guarda una caché en reportes/*_v2.rds; las siguientes
 # corridas la cargan y reportan en segundos. Para recalcular todo, poner
 # RECALCULAR <- TRUE dentro de ese script (o borrar el .rds).
 source("scripts/05_bootstrap.R")
+
+# Reproducibilidad (consigna, Fase 4): versiones de R y de los paquetes usados.
+# La semilla (set.seed(2026)) está fijada al inicio de 05_bootstrap.R.
+sessionInfo()
+writeLines(capture.output(sessionInfo()), "reportes/sessionInfo.txt")
